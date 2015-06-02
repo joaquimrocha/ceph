@@ -491,7 +491,7 @@ public:
   void share_map_peer(int peer, Connection *con,
                       OSDMapRef map = OSDMapRef());
 
-  ConnectionRef get_con_osd_cluster(int peer, epoch_t from_epoch);
+  ConnectionRef get_con_osd_cluster(int peer, epoch_t from_epoch, uint64_t*);
   pair<ConnectionRef,ConnectionRef> get_con_osd_hb(int peer, epoch_t from_epoch);  // (back, front)
   void send_message_osd_cluster(int peer, Message *m, epoch_t from_epoch);
   void send_message_osd_cluster(Message *m, Connection *con) {

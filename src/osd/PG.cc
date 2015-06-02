@@ -3820,10 +3820,11 @@ void PG::scrub(ThreadPool::TPHandle &handle)
 	continue;
       if (acting[i] == CRUSH_ITEM_NONE)
 	continue;
-      ConnectionRef con = osd->get_con_osd_cluster(acting[i], get_osdmap()->get_epoch());
+      uint64_t features;
+      ConnectionRef con = osd->get_con_osd_cluster(acting[i], get_osdmap()->get_epoch(), &features);
       if (!con)
 	continue;
-      if (!con->has_feature(CEPH_FEATURE_CHUNKY_SCRUB)) {
+      if (!(features & CEPH_FEATURE_CHUNKY_SCRUB)) {
         dout(20) << "OSD " << acting[i]
                  << " does not support chunky scrubs, falling back to classic"
                  << dendl;
@@ -4521,7 +4522,7 @@ void PG::fulfill_log(
   dout(10) << " sending " << mlog->log << " " << mlog->missing << dendl;
 
   ConnectionRef con = osd->get_con_osd_cluster(
-    from.osd, get_osdmap()->get_epoch());
+    from.osd, get_osdmap()->get_epoch(), NULL);
   if (con) {
     osd->share_map_peer(from.osd, con.get(), get_osdmap());
     osd->send_message_osd_cluster(mlog, con.get());
@@ -5763,10 +5764,11 @@ PG::RecoveryState::Backfilling::react(const RemoteReservationRejected &)
        it != pg->backfill_targets.end();
        ++it) {
     assert(*it != pg->pg_whoami);
+    uint64_t features;
     ConnectionRef con = pg->osd->get_con_osd_cluster(
-      it->osd, pg->get_osdmap()->get_epoch());
+      it->osd, pg->get_osdmap()->get_epoch(), &features);
     if (con) {
-      if (con->has_feature(CEPH_FEATURE_BACKFILL_RESERVATION)) {
+      if (features & CEPH_FEATURE_BACKFILL_RESERVATION) {
         pg->osd->send_message_osd_cluster(
           new MBackfillReserve(
 	    MBackfillReserve::REJECT,
@@ -5818,10 +5820,11 @@ PG::RecoveryState::WaitRemoteBackfillReserved::react(const RemoteBackfillReserve
   if (backfill_osd_it != context< Active >().remote_shards_to_reserve_backfill.end()) {
     //The primary never backfills itself
     assert(*backfill_osd_it != pg->pg_whoami);
+    uint64_t features;
     ConnectionRef con = pg->osd->get_con_osd_cluster(
-      backfill_osd_it->osd, pg->get_osdmap()->get_epoch());
+      backfill_osd_it->osd, pg->get_osdmap()->get_epoch(), &features);
     if (con) {
-      if (con->has_feature(CEPH_FEATURE_BACKFILL_RESERVATION)) {
+      if (features & CEPH_FEATURE_BACKFILL_RESERVATION) {
         pg->osd->send_message_osd_cluster(
           new MBackfillReserve(
 	  MBackfillReserve::REQUEST,
@@ -5862,10 +5865,11 @@ PG::RecoveryState::WaitRemoteBackfillReserved::react(const RemoteReservationReje
   for (next = it = begin, ++next ; next != backfill_osd_it; ++it, ++next) {
     //The primary never backfills itself
     assert(*it != pg->pg_whoami);
+    uint64_t features;
     ConnectionRef con = pg->osd->get_con_osd_cluster(
-      it->osd, pg->get_osdmap()->get_epoch());
+      it->osd, pg->get_osdmap()->get_epoch(), &features);
     if (con) {
-      if (con->has_feature(CEPH_FEATURE_BACKFILL_RESERVATION)) {
+      if (features & CEPH_FEATURE_BACKFILL_RESERVATION) {
         pg->osd->send_message_osd_cluster(
           new MBackfillReserve(
 	  MBackfillReserve::REJECT,
@@ -6155,10 +6159,11 @@ PG::RecoveryState::WaitRemoteRecoveryReserved::react(const RemoteRecoveryReserve
   }
 
   if (remote_recovery_reservation_it != context< Active >().remote_shards_to_reserve_recovery.end()) {
+    uint64_t features;
     ConnectionRef con = pg->osd->get_con_osd_cluster(
-      remote_recovery_reservation_it->osd, pg->get_osdmap()->get_epoch());
+      remote_recovery_reservation_it->osd, pg->get_osdmap()->get_epoch(), &features);
     if (con) {
-      if (con->has_feature(CEPH_FEATURE_RECOVERY_RESERVATION)) {
+      if (features & CEPH_FEATURE_RECOVERY_RESERVATION) {
 	pg->osd->send_message_osd_cluster(
           new MRecoveryReserve(
 	    MRecoveryReserve::REQUEST,
@@ -6208,10 +6213,11 @@ void PG::RecoveryState::Recovering::release_reservations()
         ++i) {
     if (*i == pg->pg_whoami) // skip myself
       continue;
+    uint64_t features;
     ConnectionRef con = pg->osd->get_con_osd_cluster(
-      i->osd, pg->get_osdmap()->get_epoch());
+      i->osd, pg->get_osdmap()->get_epoch(), &features);
     if (con) {
-      if (con->has_feature(CEPH_FEATURE_RECOVERY_RESERVATION)) {
+      if (features & CEPH_FEATURE_RECOVERY_RESERVATION) {
 	pg->osd->send_message_osd_cluster(
           new MRecoveryReserve(
 	    MRecoveryReserve::RELEASE,

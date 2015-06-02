@@ -218,7 +218,7 @@
        Message *m, Connection *con) = 0;
      virtual void send_message_osd_cluster(
        Message *m, const ConnectionRef& con) = 0;
-     virtual ConnectionRef get_con_osd_cluster(int peer, epoch_t from_epoch) = 0;
+     virtual ConnectionRef get_con_osd_cluster(int peer, epoch_t from_epoch, uint64_t*) = 0;
      virtual entity_name_t get_cluster_msgr_name() = 0;
 
      virtual PerfCounters *get_logger() = 0;

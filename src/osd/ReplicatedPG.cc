@@ -358,9 +358,9 @@ void ReplicatedPG::send_message_osd_cluster(
 }
 
 ConnectionRef ReplicatedPG::get_con_osd_cluster(
-  int peer, epoch_t from_epoch)
+  int peer, epoch_t from_epoch, uint64_t* features)
 {
-  return osd->get_con_osd_cluster(peer, from_epoch);
+  return osd->get_con_osd_cluster(peer, from_epoch, features);
 }
 
 PerfCounters *ReplicatedPG::get_logger()

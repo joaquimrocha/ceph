@@ -1905,12 +1905,13 @@ void ReplicatedBackend::send_pushes(int prio, map<pg_shard_t, vector<PushOp> > &
   for (map<pg_shard_t, vector<PushOp> >::iterator i = pushes.begin();
        i != pushes.end();
        ++i) {
+    uint64_t features;
     ConnectionRef con = get_parent()->get_con_osd_cluster(
       i->first.osd,
-      get_osdmap()->get_epoch());
+      get_osdmap()->get_epoch(), &features);
     if (!con)
       continue;
-    if (!(con->get_features() & CEPH_FEATURE_OSD_PACKED_RECOVERY)) {
+    if (!(features & CEPH_FEATURE_OSD_PACKED_RECOVERY)) {
       for (vector<PushOp>::iterator j = i->second.begin();
 	   j != i->second.end();
 	   ++j) {
@@ -1951,12 +1952,13 @@ void ReplicatedBackend::send_pulls(int prio, map<pg_shard_t, vector<PullOp> > &p
   for (map<pg_shard_t, vector<PullOp> >::iterator i = pulls.begin();
        i != pulls.end();
        ++i) {
+    uint64_t features;
     ConnectionRef con = get_parent()->get_con_osd_cluster(
       i->first.osd,
-      get_osdmap()->get_epoch());
+      get_osdmap()->get_epoch(), &features);
     if (!con)
       continue;
-    if (!(con->get_features() & CEPH_FEATURE_OSD_PACKED_RECOVERY)) {
+    if (!(features & CEPH_FEATURE_OSD_PACKED_RECOVERY)) {
       for (vector<PullOp>::iterator j = i->second.begin();
 	   j != i->second.end();
 	   ++j) {

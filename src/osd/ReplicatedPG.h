@@ -462,7 +462,7 @@ public:
     Message *m, Connection *con);
   void send_message_osd_cluster(
     Message *m, const ConnectionRef& con);
-  ConnectionRef get_con_osd_cluster(int peer, epoch_t from_epoch);
+  ConnectionRef get_con_osd_cluster(int peer, epoch_t from_epoch, uint64_t*);
   entity_name_t get_cluster_msgr_name() {
     return osd->get_cluster_msgr_name();
   }

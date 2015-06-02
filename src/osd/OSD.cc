@@ -690,7 +690,7 @@ void OSDService::send_message_osd_cluster(int peer, Message *m, epoch_t from_epo
   release_map(next_map);
 }
 
-ConnectionRef OSDService::get_con_osd_cluster(int peer, epoch_t from_epoch)
+ConnectionRef OSDService::get_con_osd_cluster(int peer, epoch_t from_epoch, uint64_t *features)
 {
   OSDMapRef next_map = get_nextmap_reserved();
   // service map is always newer/newest
@@ -702,6 +702,10 @@ ConnectionRef OSDService::get_con_osd_cluster(int peer, epoch_t from_epoch)
     return NULL;
   }
   ConnectionRef con = osd->cluster_messenger->get_connection(next_map->get_cluster_inst(peer));
+  if (features) {
+    *features = next_map->get_xinfo(peer).features;
+    assert(*features != 0);
+  }
   release_map(next_map);
   return con;
 }
@@ -3648,7 +3652,7 @@ void OSD::handle_osd_ping(MOSDPing *m)
       if (curmap->is_up(from)) {
 	service.note_peer_epoch(from, m->map_epoch);
 	if (is_active()) {
-	  ConnectionRef con = service.get_con_osd_cluster(from, curmap->get_epoch());
+	  ConnectionRef con = service.get_con_osd_cluster(from, curmap->get_epoch(), NULL);
 	  if (con) {
 	    service.share_map_peer(from, con.get());
 	  }
@@ -3695,7 +3699,7 @@ void OSD::handle_osd_ping(MOSDPing *m)
 	  curmap->is_up(from)) {
 	service.note_peer_epoch(from, m->map_epoch);
 	if (is_active()) {
-	  ConnectionRef con = service.get_con_osd_cluster(from, curmap->get_epoch());
+	  ConnectionRef con = service.get_con_osd_cluster(from, curmap->get_epoch(), NULL);
 	  if (con) {
 	    service.share_map_peer(from, con.get());
 	  }
@@ -7108,9 +7112,10 @@ bool OSD::compat_must_dispatch_immediately(PG *pg)
        ++i) {
     if (i->osd == whoami || i->osd == CRUSH_ITEM_NONE)
       continue;
+    uint64_t features;
     ConnectionRef conn =
-      service.get_con_osd_cluster(i->osd, pg->get_osdmap()->get_epoch());
-    if (conn && !conn->has_feature(CEPH_FEATURE_INDEP_PG_MAP)) {
+      service.get_con_osd_cluster(i->osd, pg->get_osdmap()->get_epoch(), &features);
+    if (!(features & CEPH_FEATURE_INDEP_PG_MAP)) {
       return true;
     }
   }
@@ -7163,15 +7168,16 @@ void OSD::do_notifies(
       dout(20) << __func__ << " skipping down osd." << it->first << dendl;
       continue;
     }
+    uint64_t features;
     ConnectionRef con = service.get_con_osd_cluster(
-      it->first, curmap->get_epoch());
+      it->first, curmap->get_epoch(), &features);
     if (!con) {
       dout(20) << __func__ << " skipping osd." << it->first
 	       << " (NULL con)" << dendl;
       continue;
     }
     service.share_map_peer(it->first, con.get(), curmap);
-    if (con->has_feature(CEPH_FEATURE_INDEP_PG_MAP)) {
+    if (features & CEPH_FEATURE_INDEP_PG_MAP) {
       dout(7) << __func__ << " osd " << it->first
 	      << " on " << it->second.size() << " PGs" << dendl;
       MOSDPGNotify *m = new MOSDPGNotify(curmap->get_epoch(),
@@ -7209,14 +7215,15 @@ void OSD::do_queries(map<int, map<spg_t,pg_query_t> >& query_map,
       continue;
     }
     int who = pit->first;
-    ConnectionRef con = service.get_con_osd_cluster(who, curmap->get_epoch());
+    uint64_t features;
+    ConnectionRef con = service.get_con_osd_cluster(who, curmap->get_epoch(), &features);
     if (!con) {
       dout(20) << __func__ << " skipping osd." << who
 	       << " (NULL con)" << dendl;
       continue;
     }
     service.share_map_peer(who, con.get(), curmap);
-    if (con->has_feature(CEPH_FEATURE_INDEP_PG_MAP)) {
+    if (features & CEPH_FEATURE_INDEP_PG_MAP) {
       dout(7) << __func__ << " querying osd." << who
 	      << " on " << pit->second.size() << " PGs" << dendl;
       MOSDPGQuery *m = new MOSDPGQuery(curmap->get_epoch(), pit->second);
@@ -7257,15 +7264,16 @@ void OSD::do_infos(map<int,
       dout(20) << __func__ << " sending info " << i->first.info
 	       << " to shard " << p->first << dendl;
     }
+    uint64_t features;
     ConnectionRef con = service.get_con_osd_cluster(
-      p->first, curmap->get_epoch());
+      p->first, curmap->get_epoch(), &features);
     if (!con) {
       dout(20) << __func__ << " skipping osd." << p->first
 	       << " (NULL con)" << dendl;
       continue;
     }
     service.share_map_peer(p->first, con.get(), curmap);
-    if (con->has_feature(CEPH_FEATURE_INDEP_PG_MAP)) {
+    if (features & CEPH_FEATURE_INDEP_PG_MAP) {
       MOSDPGInfo *m = new MOSDPGInfo(curmap->get_epoch());
       m->pg_list = p->second;
       con->send_message(m);
@@ -7642,7 +7650,7 @@ void OSD::handle_pg_query(OpRequestRef op)
       empty.last_backfill = hobject_t();
     if (it->second.type == pg_query_t::LOG ||
 	it->second.type == pg_query_t::FULLLOG) {
-      ConnectionRef con = service.get_con_osd_cluster(from, osdmap->get_epoch());
+      ConnectionRef con = service.get_con_osd_cluster(from, osdmap->get_epoch(), NULL);
       if (con) {
 	MOSDPGLog *mlog = new MOSDPGLog(
 	  it->second.from, it->second.to,
