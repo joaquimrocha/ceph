@@ -31,6 +31,7 @@
 #include "common/ceph_crypto.h"
 #include "include/compat.h"
 #include "chain_xattr.h"
+#include "common/errno.h"
 
 #include "LFNIndex.h"
 using ceph::crypto::SHA1;
@@ -270,6 +271,7 @@ int LFNIndex::remove_objects(const vector<string> &dir,
 int LFNIndex::move_objects(const vector<string> &from,
 			   const vector<string> &to)
 {
+  generic_derr << __func__ << " from " << from << " to " << to << dendl;
   map<string, ghobject_t> to_move;
   int r;
   r = list_objects(from, 0, NULL, &to_move);
@@ -352,6 +354,7 @@ int LFNIndex::move_object(
   const pair<string, ghobject_t> &obj
   )
 {
+  generic_derr << __func__ << " path " << path << dendl;
   string from_path(from.get_full_path(path, obj.first));
   string to_path;
   string to_name;
@@ -510,6 +513,8 @@ int LFNIndex::path_exists(const vector<string> &to_check, int *exists)
   struct stat buf;
   if (::stat(full_path.c_str(), &buf)) {
     int r = -errno;
+    generic_derr << __func__ << " to_check " << to_check << " is " << full_path
+		 << " got " << cpp_strerror(r) << dendl;
     if (r == -ENOENT) {
       *exists = 0;
       return 0;

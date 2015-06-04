@@ -94,6 +94,7 @@ int HashIndex::col_split_level(
   uint32_t match,
   unsigned *mkdirred)
 {
+  generic_derr << __func__ << " start path " << path << dendl;
   /* For each subdir, move, recurse, or ignore based on comparing the low order
    * bits of the hash represented by the subdir path with inbits, match passed
    * in.
@@ -212,7 +213,6 @@ int HashIndex::col_split_level(
     if (r < 0)
       return r;
   }
-       
 
   r = to.set_info(path, to_info);
   if (r < 0)
@@ -222,6 +222,8 @@ int HashIndex::col_split_level(
     return r;
   from.end_split_or_merge(path);
   to.end_split_or_merge(path);
+
+  generic_derr << __func__ << " finish path " << path << dendl;
   return 0;
 }
 
@@ -305,11 +307,15 @@ int HashIndex::_lookup(const ghobject_t &oid,
   int exists;
   while (1) {
     int r = path_exists(*path, &exists);
-    if (r < 0)
+    if (r < 0) {
+      generic_derr << __func__ << " " << oid << " path_exists = " << r << dendl;
       return r;
+    }
     if (!exists) {
-      if (path->empty())
+      if (path->empty()) {
+	generic_derr << __func__ << " " << oid << " path empty" << dendl;
 	return -ENOENT;
+      }
       path->pop_back();
       break;
     }
@@ -500,10 +506,8 @@ int HashIndex::recursive_remove(const vector<string> &path) {
   r = list_objects(path, 0, 0, &objects);
   if (r < 0)
     return r;
-  if (!objects.empty()) {
-    derr << __func__ << " " << path << " not empty: " << objects << dendl;
+  if (!objects.empty())
     return -ENOTEMPTY;
-  }
   vector<string> subdir(path);
   for (set<string>::iterator i = subdirs.begin();
        i != subdirs.end();
