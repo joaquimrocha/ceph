@@ -48,10 +48,16 @@ DENCODER_DEPS += libcls_user_client.a
 
 noinst_LIBRARIES += libcls_user_client.a
 
+libcls_numops_client_la_SOURCES = \
+	cls/numops/cls_numops_client.cc
+noinst_LTLIBRARIES += libcls_numops_client.la
+DENCODER_DEPS += libcls_numops_client.la
+
 noinst_HEADERS += \
 	cls/lock/cls_lock_types.h \
 	cls/lock/cls_lock_ops.h \
 	cls/lock/cls_lock_client.h \
+	cls/numops/cls_numops_client.h \
 	cls/rbd/cls_rbd.h \
 	cls/rbd/cls_rbd_client.h \
 	cls/refcount/cls_refcount_ops.h \
