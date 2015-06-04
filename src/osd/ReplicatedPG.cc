@@ -6224,6 +6224,19 @@ int ReplicatedPG::fill_in_copy_get(
     cb = new C_CopyFrom_AsyncReadCb(&osd_op, features, classic);
   }
   object_copy_data_t &reply_obj = cb ? cb->reply_obj : _reply_obj;
+  map<string,bufferlist>& out_attrs = reply_obj.attrs;
+  bufferlist& bl = reply_obj.data;
+  uint32_t omap_keys = 0;
+  int64_t left = 0;
+
+  if (!obc->obs.exists ||
+      (!soid.is_snapdir() && obc->obs.oi.is_whiteout())) {
+    pg_log.get_log().get_object_reqids(ctx->obc->obs.oi.soid, 10, &reply_obj.reqids);
+    dout(20) << __func__ << " got reqids " << reply_obj.reqids << dendl;
+    result = -ENOENT;
+    goto out;
+  }
+
   // size, mtime
   reply_obj.size = oi.size;
   reply_obj.mtime = oi.mtime;
@@ -6243,7 +6256,6 @@ int ReplicatedPG::fill_in_copy_get(
   }
 
   // attrs
-  map<string,bufferlist>& out_attrs = reply_obj.attrs;
   if (!cursor.attr_complete) {
     result = getattrs_maybe_cache(
       ctx->obc,
@@ -6259,10 +6271,9 @@ int ReplicatedPG::fill_in_copy_get(
     dout(20) << " got attrs" << dendl;
   }
 
-  int64_t left = out_max - osd_op.outdata.length();
+  left = out_max - osd_op.outdata.length();
 
   // data
-  bufferlist& bl = reply_obj.data;
   if (left > 0 && !cursor.data_complete) {
     if (cursor.data_offset < oi.size) {
       if (cb) {
@@ -6291,7 +6302,6 @@ int ReplicatedPG::fill_in_copy_get(
   }
 
   // omap
-  uint32_t omap_keys = 0;
   if (pool.info.require_rollback()) {
     cursor.omap_complete = true;
   } else {
@@ -6341,6 +6351,9 @@ int ReplicatedPG::fill_in_copy_get(
 	   << omap_keys << " keys"
 	   << " " << reply_obj.reqids.size() << " reqids"
 	   << dendl;
+  result = 0;
+
+ out:
   reply_obj.cursor = cursor;
   if (!async_read_started) {
     if (classic) {
@@ -6352,7 +6365,6 @@ int ReplicatedPG::fill_in_copy_get(
   if (cb && !async_read_started) {
     delete cb;
   }
-  result = 0;
   return result;
 }
 
