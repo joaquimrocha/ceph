@@ -3813,18 +3813,14 @@ void PG::scrub(ThreadPool::TPHandle &handle)
 
   // when we're starting a scrub, we need to determine which type of scrub to do
   if (!scrubber.active) {
-    OSDMapRef curmap = osd->get_osdmap();
     assert(backfill_targets.empty());
     for (unsigned i=0; i<acting.size(); i++) {
       if (acting[i] == pg_whoami.osd)
 	continue;
       if (acting[i] == CRUSH_ITEM_NONE)
 	continue;
-      uint64_t features;
-      ConnectionRef con = osd->get_con_osd_cluster(acting[i], get_osdmap()->get_epoch(), &features);
-      if (!con)
-	continue;
-      if (!(features & CEPH_FEATURE_CHUNKY_SCRUB)) {
+      uint64_t features = osd->osd->get_peer_epoch_features(acting[i], get_osdmap()->get_epoch());
+      if (features && !(features & CEPH_FEATURE_CHUNKY_SCRUB)) {
         dout(20) << "OSD " << acting[i]
                  << " does not support chunky scrubs, falling back to classic"
                  << dendl;

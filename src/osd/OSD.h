@@ -1924,6 +1924,7 @@ protected:
 
   // -- generic pg peering --
   PG::RecoveryCtx create_context();
+  uint64_t get_peer_epoch_features(int peer, epoch_t epoch);
   bool compat_must_dispatch_immediately(PG *pg);
   void dispatch_context(PG::RecoveryCtx &ctx, PG *pg, OSDMapRef curmap,
                         ThreadPool::TPHandle *handle = NULL);

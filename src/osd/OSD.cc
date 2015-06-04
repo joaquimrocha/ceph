@@ -7090,6 +7090,23 @@ void OSD::dispatch_context_transaction(PG::RecoveryCtx &ctx, PG *pg,
   }
 }
 
+uint64_t OSD::get_peer_epoch_features(int peer, epoch_t epoch)
+{
+  OSDMapRef next_map = service.get_nextmap_reserved();
+  // service map is always newer/newest
+  assert(epoch <= next_map->get_epoch());
+
+  if (next_map->is_down(peer) ||
+      next_map->get_info(peer).up_from > epoch) {
+    service.release_map(next_map);
+    return 0;	// Now there are no OSDs old enough to have no features 
+  }
+  uint64_t features = next_map->get_xinfo(peer).features;
+  assert(features != 0);
+  service.release_map(next_map);
+  return features;
+}
+
 bool OSD::compat_must_dispatch_immediately(PG *pg)
 {
   assert(pg->is_locked());
@@ -7107,15 +7124,15 @@ bool OSD::compat_must_dispatch_immediately(PG *pg)
     }
   }
 
+  epoch_t epoch = pg->get_osdmap()->get_epoch();
   for (set<pg_shard_t>::iterator i = tmpacting.begin();
        i != tmpacting.end();
        ++i) {
     if (i->osd == whoami || i->osd == CRUSH_ITEM_NONE)
       continue;
-    uint64_t features;
-    ConnectionRef conn =
-      service.get_con_osd_cluster(i->osd, pg->get_osdmap()->get_epoch(), &features);
-    if (!(features & CEPH_FEATURE_INDEP_PG_MAP)) {
+
+    uint64_t features = get_peer_epoch_features(i->osd, epoch);
+    if (features && !(features & CEPH_FEATURE_INDEP_PG_MAP)) {
       return true;
     }
   }
